@@ -6,14 +6,14 @@ from discord.ext import commands
 from discord import Option
 
 import db
-import ranking
+
 
 
 SCRIM_CHANNEL_NAME = "ranked-scrims"
 BOT_CMDS_CHANNEL_NAME = "cmd"
-RESULTS_CHANNEL_NAME = "results"
 
 STAFF_PERMISSION = "moderate_members"
+
 
 
 def is_staff(member: discord.Member) -> bool:
@@ -46,13 +46,6 @@ def joined_list(scrim: dict) -> list:
         return []
 
 
-def find_channel_by_suffix(guild, suffix):
-
-    return discord.utils.find(
-        lambda c: c.name.lower().endswith(suffix),
-        guild.text_channels,
-    )
-
 def build_scrim_embed(
     scrim: dict,
     host: discord.Member,
@@ -78,6 +71,7 @@ def build_scrim_embed(
             f"in #{BOT_CMDS_CHANNEL_NAME} with the Scrim ID below.)"
         )
 
+    # Ranked = green
     if scrim["match_type"] == "Ranked":
         color = discord.Color.green()
     else:
@@ -102,6 +96,8 @@ def build_scrim_embed(
         inline=False,
     )
 
+  
+
     embed.add_field(
         name="Match Type",
         value=scrim["match_type"],
@@ -114,11 +110,14 @@ def build_scrim_embed(
         inline=True,
     )
 
+
     embed.add_field(
         name="Max Players",
         value=str(scrim["max_players"]),
         inline=True,
     )
+
+
 
     embed.add_field(
         name="Region",
@@ -126,31 +125,35 @@ def build_scrim_embed(
         inline=True,
     )
 
+
     embed.add_field(
         name="Teams",
         value=scrim["teams"],
         inline=True,
     )
 
+
     embed.add_field(
         name="Map",
         value=scrim["map_type"],
         inline=True,
     )
-  
+
+
     if scrim.get("minimum_rank"):
         embed.add_field(
             name="Minimum Rank",
-            value=f"R{scrim['minimum_rank']}",
+            value=scrim["minimum_rank"],
             inline=True,
         )
 
     if scrim.get("max_rank"):
         embed.add_field(
             name="Maximum Rank",
-            value=f"R{scrim['max_rank']}",
+            value=scrim["max_rank"],
             inline=True,
         )
+
 
     if status == "selected":
         players_title = (
@@ -179,6 +182,7 @@ def build_scrim_embed(
         value=players_text,
         inline=False,
     )
+
 
     if status == "selected" and joined:
 
@@ -210,6 +214,9 @@ def build_scrim_embed(
             value=team_two_text or "None",
             inline=True,
         )
+
+
+
     if scrim.get("server_link"):
 
         embed.add_field(
@@ -217,6 +224,8 @@ def build_scrim_embed(
             value="Use the **Join Server** button below.",
             inline=False,
         )
+
+
     embed.set_footer(
         text=(
             f"Scrim ID: {scrim['scrim_id']}  •  "
@@ -226,6 +235,7 @@ def build_scrim_embed(
     )
 
     return embed
+
 
 
 def build_details_embed(
@@ -306,7 +316,7 @@ def build_details_embed(
 
         embed.add_field(
             name="Minimum Rank",
-            value=f"R{scrim['minimum_rank']}",
+            value=scrim["minimum_rank"],
             inline=True,
         )
 
@@ -314,9 +324,10 @@ def build_details_embed(
 
         embed.add_field(
             name="Maximum Rank",
-            value=f"R{scrim['max_rank']}",
+            value=scrim["max_rank"],
             inline=True,
         )
+
 
     required = get_required_players(
         scrim["teams"]
@@ -351,7 +362,7 @@ def build_details_embed(
         value=player_text,
         inline=False,
     )
-  
+
     if status == "selected" and joined:
 
         team_size = get_team_size(
@@ -383,6 +394,8 @@ def build_details_embed(
         )
 
     return embed
+
+
 
 class ScrimActionResult:
 
@@ -445,48 +458,6 @@ async def perform_join(
             False,
             error="❌ This scrim is full.",
         )
-
-    min_rank = scrim.get("minimum_rank")
-    max_rank = scrim.get("max_rank")
-
-    if min_rank or max_rank:
-
-        member = guild.get_member(user_id)
-
-        if member is None:
-
-            try:
-                member = await guild.fetch_member(user_id)
-            except discord.NotFound:
-                return ScrimActionResult(
-                    False,
-                    error="❌ Couldn't verify your rank — try again.",
-                )
-
-        rank_info = ranking.get_rank_from_member(member)
-
-        if rank_info is None:
-
-            return ScrimActionResult(
-                False,
-                error="❌ You need a rank role to join this scrim.",
-            )
-
-        player_rank = rank_info[0]
-
-        if min_rank and player_rank < min_rank:
-
-            return ScrimActionResult(
-                False,
-                error=f"❌ This scrim requires at least R{min_rank}.",
-            )
-
-        if max_rank and player_rank > max_rank:
-
-            return ScrimActionResult(
-                False,
-                error=f"❌ This scrim is capped at R{max_rank}.",
-            )
 
     joined.append(
         user_id
@@ -568,6 +539,8 @@ async def perform_join(
             scrim=scrim,
             announcement=announcement,
         )
+
+
 
     scrim = await db.get_scrim(
         scrim_id
@@ -737,6 +710,7 @@ async def update_scrim_message(
     embed: discord.Embed,
     view: discord.ui.View,
 ) -> bool:
+
     channel = bot.get_channel(
         scrim["channel_id"]
     )
@@ -767,36 +741,6 @@ async def update_scrim_message(
         return False
 
 
-def build_rank_ping_text(
-    guild: discord.Guild,
-    minimum_rank: int | None,
-    max_rank: int | None,
-) -> str | None:
-
-    if not minimum_rank and not max_rank:
-        return None
-
-    lo = minimum_rank or 1
-    hi = max_rank or 10
-
-    role_mentions = []
-
-    for rank in range(lo, hi + 1):
-
-        for subrank, role_name in ranking.RANK_NAMES.get(rank, {}).items():
-
-            role = discord.utils.get(
-                guild.roles,
-                name=role_name,
-            )
-
-            if role is not None:
-                role_mentions.append(role.mention)
-
-    if not role_mentions:
-        return None
-
-    return " ".join(role_mentions)
 
 class ScrimView(
     discord.ui.View
@@ -814,6 +758,8 @@ class ScrimView(
 
         self.scrim_id = scrim_id
 
+
+
         if server_link:
 
             self.add_item(
@@ -823,6 +769,7 @@ class ScrimView(
                     url=server_link,
                 )
             )
+
 
     @discord.ui.button(
         label="Join Scrim",
@@ -834,6 +781,11 @@ class ScrimView(
         button: discord.ui.Button,
         interaction: discord.Interaction,
     ):
+
+ 
+        await ctx.defer(ephemeral=True)
+
+        await interaction.response.defer()
 
         result = await perform_join(
             interaction.guild,
@@ -848,7 +800,7 @@ class ScrimView(
                 ephemeral=True,
             )
 
-        await interaction.response.edit_message(
+        await interaction.edit_original_response(
             embed=result.embed,
             view=result.view,
         )
@@ -866,6 +818,8 @@ class ScrimView(
                 ephemeral=True,
             )
 
+   
+
     @discord.ui.button(
         label="Close Scrim",
         style=discord.ButtonStyle.red,
@@ -876,6 +830,12 @@ class ScrimView(
         button: discord.ui.Button,
         interaction: discord.Interaction,
     ):
+
+
+        await ctx.defer(ephemeral=True)
+
+
+        await interaction.response.defer()
 
         result = await perform_close(
             interaction.guild,
@@ -890,10 +850,11 @@ class ScrimView(
                 ephemeral=True,
             )
 
-        await interaction.response.edit_message(
+        await interaction.edit_original_response(
             embed=result.embed,
             view=result.view,
         )
+
 
     @discord.ui.button(
         label="Null Scrim",
@@ -905,6 +866,10 @@ class ScrimView(
         button: discord.ui.Button,
         interaction: discord.Interaction,
     ):
+
+        await ctx.defer(ephemeral=True)
+
+        await interaction.response.defer()
 
         result = await perform_null(
             interaction.guild,
@@ -919,7 +884,7 @@ class ScrimView(
                 ephemeral=True,
             )
 
-        await interaction.response.edit_message(
+        await interaction.edit_original_response(
             embed=result.embed,
             view=result.view,
         )
@@ -1006,23 +971,20 @@ class Scrims(
         ),
 
         minimum_rank: Option(
-            int,
-            "Minimum rank required to join (1-10)",
+            str,
+            "Minimum rank",
             required=False,
-            min_value=1,
-            max_value=10,
-            default=None,
+            default="",
         ),
 
         max_rank: Option(
-            int,
-            "Maximum rank allowed to join (1-10)",
+            str,
+            "Maximum rank",
             required=False,
-            min_value=1,
-            max_value=10,
-            default=None,
+            default="",
         ),
     ):
+
 
         if not ctx.channel.name.lower().endswith(
             SCRIM_CHANNEL_NAME
@@ -1034,10 +996,9 @@ class Scrims(
                 ephemeral=True,
             )
 
-
-        await ctx.defer(
-            ephemeral=True
-        )
+        # Acknowledge immediately. MongoDB + message creation
+        # below can take longer than Discord's interaction window.
+        await ctx.defer(ephemeral=True)
 
 
         scrim_id = await db.create_scrim(
@@ -1058,9 +1019,11 @@ class Scrims(
             status="open",
         )
 
+
         scrim = await db.get_scrim(
             scrim_id
         )
+
 
 
         embed = build_scrim_embed(
@@ -1074,15 +1037,7 @@ class Scrims(
         )
 
 
-        ping_text = build_rank_ping_text(
-            ctx.guild,
-            minimum_rank,
-            max_rank,
-        )
-
-
         message = await ctx.channel.send(
-            content=ping_text,
             embed=embed,
             view=view,
         )
@@ -1125,10 +1080,6 @@ class Scrims(
                 f"#{BOT_CMDS_CHANNEL_NAME}.",
                 ephemeral=True,
             )
-
-        await ctx.defer(
-            ephemeral=True
-        )
 
         result = await perform_join(
             ctx.guild,
@@ -1175,7 +1126,6 @@ class Scrims(
                 ephemeral=True,
             )
 
-
     @commands.slash_command(
         name="closescrim",
         description="Close a scrim by its ID.",
@@ -1198,10 +1148,6 @@ class Scrims(
                 f"#{BOT_CMDS_CHANNEL_NAME}.",
                 ephemeral=True,
             )
-
-        await ctx.defer(
-            ephemeral=True
-        )
 
         result = await perform_close(
             ctx.guild,
@@ -1252,10 +1198,6 @@ class Scrims(
                 ephemeral=True,
             )
 
-        await ctx.defer(
-            ephemeral=True
-        )
-
         result = await perform_null(
             ctx.guild,
             scrim_id,
@@ -1283,188 +1225,6 @@ class Scrims(
 
 
 
-    @commands.slash_command(
-        name="scrimresult",
-        description="Post a completed scrim's result summary.",
-    )
-    async def scrimresult(
-        self,
-        ctx,
-
-        format_type: Option(
-            str,
-            "Scrim format",
-            choices=[
-                "FT11 WB2",
-                "FT11 WB1",
-            ],
-        ),
-
-        region: Option(
-            str,
-            "Region",
-            choices=[
-                "NA",
-                "EU",
-                "OCE",
-                "Idk",
-            ],
-        ),
-
-        map_type: Option(
-            str,
-            "Map type",
-            choices=[
-                "Glass",
-                "No glass",
-            ],
-        ),
-
-        score: Option(
-            str,
-            "Final score, e.g. 15-13",
-        ),
-
-        winning_team: Option(
-            str,
-            "Winning team",
-            choices=[
-                "White",
-                "Black",
-            ],
-        ),
-
-        white_team: Option(
-            str,
-            "White team roster, one player per line (e.g. '@Mega — 49 kills')",
-            max_length=1000,
-        ),
-
-        black_team: Option(
-            str,
-            "Black team roster, one player per line",
-            max_length=1000,
-        ),
-
-        mvp: Option(
-            discord.Member,
-            "MVP of the scrim",
-            required=False,
-        ),
-
-        performance_notes: Option(
-            str,
-            "Optional notes about the scrim",
-            required=False,
-            default="",
-        ),
-    ):
-
-        if not ctx.channel.name.lower().endswith(
-            BOT_CMDS_CHANNEL_NAME
-        ):
-
-            return await ctx.respond(
-                f"❌ Use `/scrimresult` in "
-                f"#{BOT_CMDS_CHANNEL_NAME}.",
-                ephemeral=True,
-            )
-
-        await ctx.defer(
-            ephemeral=True
-        )
-
-        results_channel = find_channel_by_suffix(
-            ctx.guild,
-            RESULTS_CHANNEL_NAME,
-        )
-
-        if results_channel is None:
-
-            return await ctx.respond(
-                "❌ Couldn't find the results channel "
-                f"(looking for one ending in '{RESULTS_CHANNEL_NAME}'). "
-                "Tell the dev the real channel name.",
-                ephemeral=True,
-            )
-
-        embed = discord.Embed(
-            title="🏆 Scrim Result",
-            color=discord.Color.gold(),
-        )
-
-        embed.add_field(
-            name="Format",
-            value=format_type,
-            inline=True,
-        )
-
-        embed.add_field(
-            name="Region",
-            value=region,
-            inline=True,
-        )
-
-        embed.add_field(
-            name="Map",
-            value=map_type,
-            inline=True,
-        )
-
-        embed.add_field(
-            name="Score",
-            value=score,
-            inline=True,
-        )
-
-        embed.add_field(
-            name="Winning Team",
-            value=winning_team,
-            inline=True,
-        )
-
-        embed.add_field(
-            name="White Team",
-            value=white_team,
-            inline=False,
-        )
-
-        embed.add_field(
-            name="Black Team",
-            value=black_team,
-            inline=False,
-        )
-
-        if mvp is not None:
-
-            embed.add_field(
-                name="MVP",
-                value=mvp.mention,
-                inline=False,
-            )
-
-        if performance_notes:
-
-            embed.add_field(
-                name="Performance Notes",
-                value=performance_notes,
-                inline=False,
-            )
-
-        embed.set_footer(
-            text=f"Hosted by {ctx.author.display_name}"
-        )
-
-        await results_channel.send(
-            embed=embed
-        )
-
-        await ctx.respond(
-            "✅ Result posted.",
-            ephemeral=True,
-        )
-
-
 async def register_persistent_views(
     bot,
 ):
@@ -1489,7 +1249,6 @@ async def register_persistent_views(
                 f"{row['scrim_id']}: "
                 f"{type(e).__name__}: {e}"
             )
-
 
 
 def setup(bot):
