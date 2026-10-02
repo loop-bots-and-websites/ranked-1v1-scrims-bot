@@ -8,9 +8,9 @@ from discord import Option
 import db
 
 
-
-SCRIM_CHANNEL_NAME = "ranked-scrims"
 BOT_CMDS_CHANNEL_NAME = "cmd"
+RANKED_CHANNEL_NAME = "ranked-1v1"
+SCRIM_CHANNEL_NAME = "ranked-scrims"
 
 STAFF_PERMISSION = "moderate_members"
 
